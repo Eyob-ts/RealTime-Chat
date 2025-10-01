@@ -27,28 +27,24 @@ import {
       console.log(`Client disconnected: ${client.id}`);
     }
   
-    // payload: { chatRoomId: number, username?: string }
     @SubscribeMessage('joinRoom')
-    async onJoinRoom(client: Socket, payload: { chatRoomId: number; username?: string }) {
-      const room = `room-${payload.chatRoomId}`;
+    async onJoinRoom(client: Socket, payload: { chatRoomId: number; roomId?: number; username?: string }) {
+      const roomId = payload.chatRoomId || payload.roomId;
+      const room = `room-${roomId}`;
       client.join(room);
-      client.emit('joined', { chatRoomId: payload.chatRoomId });
+      client.emit('joined', { chatRoomId: roomId });
     }
   
-    // payload: { text, userId, chatRoomId }
     @SubscribeMessage('sendMessage')
     async onSendMessage(client: Socket, payload: { text: string; userId: number; chatRoomId: number }) {
-      // persist message
       const message = await this.messagesService.create({
         text: payload.text,
         userId: payload.userId,
         chatRoomId: payload.chatRoomId,
       });
   
-      // broadcast to room
       const room = `room-${payload.chatRoomId}`;
-      this.server.to(room).emit('message', message);
+      this.server.to(room).emit('newMessage', message);
       return { status: 'ok' };
     }
   }
-  
