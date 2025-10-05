@@ -5,10 +5,10 @@ const prisma = new PrismaClient();
 async function main() {
     //Create test users
     const John = await prisma.user.create({
-        data: {username: 'John'}
+        data: {username: 'John', password: 'password'}
     });
     const Doe = await prisma.user.create({
-        data: {username: 'Doe'}
+        data: {username: 'Doe', password: 'password'}
     });
 
     // Create a test room

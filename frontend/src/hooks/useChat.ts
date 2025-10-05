@@ -1,25 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import { useSocket } from "../sockets/SocketProvider";
 import { fetchMessages, postMessage } from "../services/api";
+import { useAuth } from "../contexts/AuthContext";
 
-export function useChat(roomId: number | null, userId: number) {
+export function useChat(roomId: number | null) {
   const socket = useSocket();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<any[]>([]);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const pendingRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || !user) return;
     let mounted = true;
+    
     (async () => {
-      const data = await fetchMessages(roomId);
-      if (!mounted) return;
-      setMessages(data.reverse()); // show oldest -> newest
+      try {
+        const data = await fetchMessages(roomId);
+        if (!mounted) return;
+        setMessages(data); // messages are already ordered by createdAt asc
+      } catch (error) {
+        console.error('Failed to fetch messages:', error);
+      }
     })();
 
-    const roomName = `room-${roomId}`;
-    socket.emit("joinRoom", { chatRoomId: roomId, username: `user-${userId}` });
+    // Join the room
+    socket.emit("joinRoom", { chatRoomId: roomId });
 
-    const onMessage = (msg: any) => {
+    const onNewMessage = (msg: any) => {
       setMessages((s) => {
         // dedupe
         if (s.some(m => m.id === msg.id)) return s;
@@ -27,39 +35,55 @@ export function useChat(roomId: number | null, userId: number) {
       });
     };
 
-    socket.on("message", onMessage);
+    const onUserTyping = (data: { userId: number; username: string; isTyping: boolean }) => {
+      setTypingUsers((prev) => {
+        const newSet = new Set(prev);
+        if (data.isTyping) {
+          newSet.add(data.username);
+        } else {
+          newSet.delete(data.username);
+        }
+        return newSet;
+      });
+    };
+
+    socket.on("newMessage", onNewMessage);
+    socket.on("userTyping", onUserTyping);
 
     return () => {
       mounted = false;
-      socket.off("message", onMessage);
+      socket.emit("leaveRoom", { chatRoomId: roomId });
+      socket.off("newMessage", onNewMessage);
+      socket.off("userTyping", onUserTyping);
     };
-  }, [roomId, socket]);
+  }, [roomId, socket, user]);
 
   async function sendMessage(text: string) {
-    if (!roomId) return null;
+    if (!roomId || !user) return null;
+    
     // optimistic UI: temp id negative
     const tempId = `temp-${Date.now()}`;
     const optimistic = {
       id: tempId,
       text,
-      userId,
+      userId: user.id,
       chatRoomId: roomId,
       createdAt: new Date().toISOString(),
-      user: { id: userId, username: "you" },
+      user: { id: user.id, username: user.username },
       optimistic: true,
     };
     setMessages((s) => [...s, optimistic]);
     pendingRef.current[tempId] = true;
 
     // emit to socket — server will persist and broadcast real message
-    socket.emit("sendMessage", { text, userId, chatRoomId: roomId }, (ack: any) => {
+    socket.emit("sendMessage", { text, chatRoomId: roomId }, (ack: any) => {
       // if server acknowledges with the real message, replace temp entry
-      if (ack && ack.id) {
-        setMessages((s) => s.map(m => (m.id === tempId ? ack : m)));
+      if (ack && ack.status === 'ok' && ack.message) {
+        setMessages((s) => s.map(m => (m.id === tempId ? ack.message : m)));
         delete pendingRef.current[tempId];
       } else {
         // fallback: try REST save
-        postMessage({ text, userId, chatRoomId: roomId }).then(real => {
+        postMessage({ text, chatRoomId: roomId }).then(real => {
           setMessages((s) => s.map(m => (m.id === tempId ? real : m)));
           delete pendingRef.current[tempId];
         }).catch(() => {
@@ -70,5 +94,10 @@ export function useChat(roomId: number | null, userId: number) {
     });
   }
 
-  return { messages, sendMessage };
+  function sendTyping(isTyping: boolean) {
+    if (!roomId) return;
+    socket.emit("typing", { chatRoomId: roomId, isTyping });
+  }
+
+  return { messages, sendMessage, sendTyping, typingUsers };
 }
