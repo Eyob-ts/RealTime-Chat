@@ -1,52 +1,98 @@
-import React, { useState, useEffect } from "react";
-import { useSocket } from "../sockets/SocketProvider";
+import React, { useState, useRef, useEffect } from "react";
+import { useChat } from "../hooks/useChat";
+import { MessageList } from "./MessageList";
+import { MessageInput } from "./MessageInput";
+import { useAuth } from "../contexts/AuthContext";
 
-export function ChatWindow({ roomId, userId }: { roomId: number; userId: number }) {
-  const socket = useSocket();
-  const [messages, setMessages] = useState<string[]>([]);
+export function ChatWindow({ roomId }: { roomId: number }) {
+  const { messages, sendMessage, sendTyping, typingUsers } = useChat(roomId);
+  const { user } = useAuth();
   const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    // connect socket when component mounts
-    socket.connect();
+  const handleInputChange = (value: string) => {
+    setInput(value);
+    
+    // Send typing indicator
+    if (!isTyping) {
+      setIsTyping(true);
+      sendTyping(true);
+    }
 
-    // join room
-    socket.emit("joinRoom", { roomId, userId });
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
 
-    // listen for new messages
-    socket.on("message", (msg: any) => {
-      setMessages((prev) => [...prev, `${msg.user}: ${msg.text}`]);
-    });
+    // Set new timeout to stop typing indicator
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      sendTyping(false);
+    }, 1000);
+  };
 
-    return () => {
-      socket.disconnect();
-    };
-  }, [socket, roomId, userId]);
-
-  const sendMessage = () => {
+  const handleSendMessage = () => {
     if (!input.trim()) return;
-    socket.emit("sendMessage", { roomId, userId, text: input });
+    
+    // Stop typing indicator
+    if (isTyping) {
+      setIsTyping(false);
+      sendTyping(false);
+    }
+    
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    sendMessage(input);
     setInput("");
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (isTyping) {
+        sendTyping(false);
+      }
+    };
+  }, []);
+
   return (
-    <div className="flex flex-col h-full bg-gray-400">
-      <div className="flex-1 overflow-auto p-4 space-y-2">
-        {messages.map((m, i) => (
-          <div key={i} className="bg-gray-100 p-2 rounded">{m}</div>
-        ))}
+    <div className="flex flex-col h-full bg-gray-900">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-700 bg-gray-800">
+        <h2 className="text-white text-lg font-semibold">Room {roomId}</h2>
+        {typingUsers.size > 0 && (
+          <p className="text-gray-400 text-sm">
+            {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
+          </p>
+        )}
       </div>
-      <div className="p-3 border-t flex gap-2">
-        <input
+
+      {/* Messages */}
+      <div className="flex-1 overflow-hidden">
+        <MessageList messages={messages} currentUserId={user?.id} />
+      </div>
+
+      {/* Input */}
+      <div className="p-4 border-t border-gray-700 bg-gray-800">
+        <MessageInput
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          onChange={handleInputChange}
+          onKeyPress={handleKeyPress}
+          onSend={handleSendMessage}
           placeholder="Type a message..."
-          className="flex-1 p-2 border rounded"
         />
-        <button onClick={sendMessage} className="px-4 py-2 bg-blue-600 text-white rounded">
-          Send
-        </button>
       </div>
     </div>
   );
