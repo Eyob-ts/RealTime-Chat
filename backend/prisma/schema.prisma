@@ -14,29 +14,42 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  createdAt DateTime @default(now())
-  messages  Message[]
+  id           Int                     @id @default(autoincrement())
+  username     String                  @unique
+  password     String
+  createdAt    DateTime                @default(now())
+  messages     Message[]
+  participants ChatRoomParticipant[]
 }
 
 model ChatRoom {
-  id        Int      @id @default(autoincrement())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  messages  Message[]
+  id           Int                     @id @default(autoincrement())
+  name         String?
+  isGroup      Boolean                 @default(false)
+  isPublic     Boolean                 @default(false)
+  inviteCode   String?                 @unique
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  messages     Message[]
+  participants ChatRoomParticipant[]
+}
+
+model ChatRoomParticipant {
+  id         Int      @id @default(autoincrement())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     Int
+  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id])
+  chatRoomId Int
+
+  @@unique([userId, chatRoomId])
 }
 
 model Message {
-  id        Int      @id @default(autoincrement())
-  text      String
-  createdAt DateTime @default(now())
-
-  //relation
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-
-  chatRoomId Int
-  chatRoom  ChatRoom @relation(fields: [chatRoomId], references: [id])
+  id          Int      @id @default(autoincrement())
+  text        String
+  createdAt   DateTime @default(now())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  chatRoomId  Int
+  chatRoom    ChatRoom @relation(fields: [chatRoomId], references: [id])
 }
