@@ -1,12 +1,14 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { AddUserDto } from './dto/add-user.dto';
 import { nanoid } from 'nanoid';
+import { ChatGateway } from '../gateway/chat.getway';
 
 @Injectable()
 export class RoomsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService,
+    @Inject(forwardRef(() => ChatGateway)) private chatGateway: ChatGateway) {}
 
   async create(createRoomDto: CreateRoomDto, userId: number) {
     const { name, isGroup = false } = createRoomDto;
@@ -99,9 +101,17 @@ export class RoomsService {
     if (alreadyParticipant) return room;
 
     // Add user to participants
-    await this.prisma.chatRoomParticipant.create({
-      data: {userId, chatRoomId: room.id}
+    const participant = await this.prisma.chatRoomParticipant.create({
+      data: {userId, chatRoomId: room.id},
     });
+
+    // notify the user via websocket that they were added
+    try {
+      this.chatGateway.emitToUser(userId, 'addedToRoom', { roomId: room.id });
+    } catch (e) {
+      // don't block on notification errors
+      console.warn('Failed to emit addedToRoom', e?.message || e);
+    }
 
     return room;
   }
@@ -198,6 +208,13 @@ export class RoomsService {
         },
       },
     });
+
+    // notify the added user via websocket
+    try {
+      this.chatGateway.emitToUser(targetUserId, 'addedToRoom', { roomId });
+    } catch (e) {
+      console.warn('Failed to emit addedToRoom', e?.message || e);
+    }
 
     return participant;
   }
@@ -306,6 +323,13 @@ export class RoomsService {
         },
     },
   });
+
+  // notify the target user they were added to a private room
+  try {
+    this.chatGateway.emitToUser(targetUserId, 'addedToRoom', { roomId: newRoom.id });
+  } catch (e) {
+    console.warn('Failed to emit addedToRoom', e?.message || e);
+  }
 
   return newRoom;
 }

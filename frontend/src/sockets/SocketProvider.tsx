@@ -11,14 +11,20 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (token && user) {
-      const newSocket = io(`${backend}/chat`, {
-        auth: {
-          token: token,
-        },
-        transports: ['websocket'],
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
+      let newSocket: Socket;
+      try {
+        newSocket = io(`${backend}/chat`, {
+          auth: {
+            token: token,
+          },
+          // allow polling fallback for environments where websocket fails
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+        });
+      } catch (e) {
+        console.warn('Socket init failed', (e as any)?.message || e);
+        return;
+      }
 
       newSocket.on("connect", () => {
         console.log("Socket connected", newSocket.id);
@@ -30,6 +36,16 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
       newSocket.on("disconnect", () => {
         console.log("Socket disconnected");
+      });
+
+      // when server notifies user that they were added to a room, dispatch a DOM event
+      newSocket.on('addedToRoom', (payload: any) => {
+        try {
+          const ev = new CustomEvent('addedToRoom', { detail: payload });
+          window.dispatchEvent(ev);
+        } catch (e) {
+          console.warn('Failed to dispatch addedToRoom event', e);
+        }
       });
 
       setSocket(newSocket);

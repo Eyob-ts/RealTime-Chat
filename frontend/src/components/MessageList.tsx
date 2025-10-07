@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { MessageItem } from "./MessageItem";
 
 interface Message {
@@ -21,7 +21,12 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    try {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } catch (e) {
+      // ignore scroll errors
+      console.warn('Scroll to bottom failed', e);
+    }
   };
 
   useEffect(() => {
@@ -29,17 +34,18 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
   }, [messages]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-      {messages.length === 0 ? (
-        <div className="flex items-center justify-center h-full">
+    // use h-full so this element fills the available height from the parent
+    <div className="h-full overflow-y-auto p-4 space-y-4">
+      {(!messages || messages.length === 0) ? (
+        <div className="h-full flex items-center justify-center">
           <p className="text-gray-400">No messages yet. Start the conversation!</p>
         </div>
       ) : (
-        messages.map((message) => (
+        messages.filter(Boolean).map((message) => (
           <MessageItem
-            key={message.id}
+            key={message?.id ?? Math.random()}
             message={message}
-            isOwn={message.user.id === currentUserId}
+            isOwn={(message?.user?.id ?? null) === currentUserId}
           />
         ))
       )}

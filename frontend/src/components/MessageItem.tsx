@@ -1,4 +1,4 @@
-import React from "react";
+// React import not required with new JSX runtime
 
 interface Message {
   id: number | string;
@@ -18,7 +18,9 @@ interface MessageItemProps {
 
 export function MessageItem({ message, isOwn }: MessageItemProps) {
   const formatTime = (dateString: string) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '';
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
@@ -31,10 +33,10 @@ export function MessageItem({ message, isOwn }: MessageItemProps) {
       } ${message.optimistic ? 'opacity-70' : ''}`}>
         {!isOwn && (
           <div className="text-xs text-gray-300 mb-1">
-            {message.user.username}
+            {message.user?.username ?? 'Unknown'}
           </div>
         )}
-        <div className="text-sm">{message.text}</div>
+        <div className="text-sm">{message.text ?? ''}</div>
         <div className={`text-xs mt-1 ${
           isOwn ? 'text-blue-100' : 'text-gray-400'
         }`}>

@@ -20,7 +20,12 @@ export function useChat(roomId: number | null) {
         if (!mounted) return;
         setMessages(data); // messages are already ordered by createdAt asc
       } catch (error) {
-        console.error('Failed to fetch messages:', error);
+        if ((error as Error).message.includes('403')) {
+          console.warn('Access denied to this room (403). You are not a participant.');
+          setMessages([]);
+        } else {
+          console.error('Failed to fetch messages:', error);
+        }
       }
     })();
 
@@ -29,8 +34,13 @@ export function useChat(roomId: number | null) {
 
     const onNewMessage = (msg: any) => {
       setMessages((s) => {
-        // dedupe
-        if (s.some(m => m.id === msg.id)) return s;
+        // dedupe by id
+        if (msg?.id && s.some(m => m.id === msg.id)) return s;
+        // also avoid adding if an optimistic message with same text and user exists
+        if (s.some(m => m.optimistic && m.text === msg.text && m.user?.id === msg.user?.id)) {
+          // replace the optimistic with the real one
+          return s.map(m => (m.optimistic && m.text === msg.text && m.user?.id === msg.user?.id) ? msg : m);
+        }
         return [...s, msg];
       });
     };
@@ -79,7 +89,19 @@ export function useChat(roomId: number | null) {
     socket.emit("sendMessage", { text, chatRoomId: roomId }, (ack: any) => {
       // if server acknowledges with the real message, replace temp entry
       if (ack && ack.status === 'ok' && ack.message) {
-        setMessages((s) => s.map(m => (m.id === tempId ? ack.message : m)));
+        const real = ack.message;
+        setMessages((s) => {
+          // if real already exists, remove any optimistic with tempId
+          if (s.some(m => m.id === real.id)) {
+            return s.filter(m => m.id !== tempId);
+          }
+          // replace the optimistic entry with the real one
+          if (s.some(m => m.id === tempId)) {
+            return s.map(m => (m.id === tempId ? real : m));
+          }
+          // fallback: append if neither exists
+          return [...s, real];
+        });
         delete pendingRef.current[tempId];
       } else {
         // fallback: try REST save

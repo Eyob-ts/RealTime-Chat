@@ -19,6 +19,11 @@ export class RoomsController {
     return this.roomsService.findAll(req.user.id);
   }
 
+  @Get('search')
+  search(@Query('query') query: string, @Request() req) {
+    return this.roomsService.searchUsers(query, req.user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
     return this.roomsService.findOne(id, req.user.id);
@@ -38,10 +43,10 @@ export class RoomsController {
     return this.roomsService.addUser(id, addUserDto, req.user.id);
   }
 
-  @Get('search')
-  search(@Query('query') query: string, @Request() req) {
-    return this.roomsService.searchUsers(query, req.user.id);
-  }
+  // @Get('search')
+  // search(@Query('query') query: string, @Request() req) {
+  //   return this.roomsService.searchUsers(query, req.user.id);
+  // }
 
   @Post('private/:targetUserId')
   createPrivate(@Param('targetUserId', ParseIntPipe) targetUserId: number, @Request() req) {

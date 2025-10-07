@@ -4,6 +4,7 @@ interface Room {
   id: number;
   name: string;
   isGroup: boolean;
+  inviteCode?: string;
   createdAt: string;
   participants: Array<{
     user: {
@@ -30,11 +31,12 @@ interface RoomListProps {
 
 export function RoomList({ rooms, selectedRoomId, onSelectRoom }: RoomListProps) {
   const formatLastMessage = (room: Room) => {
-    if (room.messages.length === 0) {
+    const messages = (room.messages || []);
+    if (messages.length === 0) {
       return "No messages yet";
     }
-    
-    const lastMessage = room.messages[0];
+
+    const lastMessage = messages[0];
     const maxLength = 30;
     const text = lastMessage.text.length > maxLength 
       ? lastMessage.text.substring(0, maxLength) + "..."
@@ -78,9 +80,32 @@ export function RoomList({ rooms, selectedRoomId, onSelectRoom }: RoomListProps)
                     {room.name}
                   </h3>
                   {room.isGroup && (
-                    <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
-                      Group
-                    </span>
+                    <>
+                      <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
+                        Group
+                      </span>
+                      {room.inviteCode && (
+                        <button
+                          title="Copy invite code"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              if (room.inviteCode) await navigator.clipboard.writeText(room.inviteCode);
+                              // quick visual feedback
+                              // eslint-disable-next-line no-alert
+                              alert('Invite code copied to clipboard');
+                            } catch (err) {
+                              // fallback
+                              // eslint-disable-next-line no-alert
+                              alert(`Invite code: ${room.inviteCode ?? ''}`);
+                            }
+                          }}
+                          className="ml-2 text-xs bg-gray-600 text-white px-2 py-1 rounded"
+                        >
+                          Copy code
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
                 <p className="text-gray-400 text-sm truncate mt-1">
@@ -88,11 +113,11 @@ export function RoomList({ rooms, selectedRoomId, onSelectRoom }: RoomListProps)
                 </p>
                 <div className="flex items-center justify-between mt-2">
                   <p className="text-gray-500 text-xs">
-                    {room.participants.length} member{room.participants.length !== 1 ? 's' : ''}
+                    {(room.participants || []).length} member{(room.participants || []).length !== 1 ? 's' : ''}
                   </p>
-                  {room.messages.length > 0 && (
+                  {(room.messages || []).length > 0 && (
                     <p className="text-gray-500 text-xs">
-                      {formatTime(room.messages[0].createdAt)}
+                      {formatTime((room.messages || [])[0].createdAt)}
                     </p>
                   )}
                 </div>

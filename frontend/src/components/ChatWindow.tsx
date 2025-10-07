@@ -9,7 +9,8 @@ export function ChatWindow({ roomId }: { roomId: number }) {
   const { user } = useAuth();
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // use number | null for browser setTimeout handle (avoids NodeJS types)
+  const typingTimeoutRef = useRef<number | null>(null);
 
   const handleInputChange = (value: string) => {
     setInput(value);
@@ -22,7 +23,7 @@ export function ChatWindow({ roomId }: { roomId: number }) {
 
     // Clear existing timeout
     if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+      clearTimeout(typingTimeoutRef.current as unknown as number);
     }
 
     // Set new timeout to stop typing indicator
@@ -42,7 +43,7 @@ export function ChatWindow({ roomId }: { roomId: number }) {
     }
     
     if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+      clearTimeout(typingTimeoutRef.current as unknown as number);
     }
 
     sendMessage(input);
@@ -80,7 +81,8 @@ export function ChatWindow({ roomId }: { roomId: number }) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-hidden">
+      {/* Use min-h-0 so the flex child can shrink and allow overflow-y to work */}
+      <div className="flex-1 min-h-0">
         <MessageList messages={messages} currentUserId={user?.id} />
       </div>
 

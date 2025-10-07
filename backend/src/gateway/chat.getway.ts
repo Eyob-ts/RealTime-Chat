@@ -20,6 +20,8 @@ import {
   })
   export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
+    // map of userId -> set of socket ids
+    private userSockets: Map<number, Set<string>> = new Map();
   
     constructor(
       private readonly messagesService: MessagesService,
@@ -53,6 +55,10 @@ import {
         }
 
         client.data.user = user;
+  // register this socket id for the connected user
+  const set = this.userSockets.get(user.id) || new Set<string>();
+  set.add(client.id);
+  this.userSockets.set(user.id, set);
         console.log(`Client connected: ${client.id} (User: ${user.username})`);
       } catch (error) {
         console.log('Authentication failed:', error.message);
@@ -61,7 +67,25 @@ import {
     }
   
     handleDisconnect(client: Socket) {
+      // remove from userSockets map
+      const user = client.data?.user;
+      if (user && user.id) {
+        const set = this.userSockets.get(user.id);
+        if (set) {
+          set.delete(client.id);
+          if (set.size === 0) this.userSockets.delete(user.id);
+        }
+      }
       console.log(`Client disconnected: ${client.id}`);
+    }
+
+    // Emit an event to all sockets of a specific user
+    emitToUser(userId: number, event: string, payload: any) {
+      const sockets = this.userSockets.get(userId);
+      if (!sockets) return;
+      for (const socketId of sockets) {
+        this.server.to(socketId).emit(event, payload);
+      }
     }
   
     @SubscribeMessage('joinRoom')
@@ -116,7 +140,8 @@ import {
         });
 
         const roomName = `room-${chatRoomId}`;
-        this.server.to(roomName).emit('newMessage', {
+        // broadcast to others in the room (exclude sender) to avoid duplicate for sender
+        client.to(roomName).emit('newMessage', {
           ...message,
           user: client.data.user,
         });
