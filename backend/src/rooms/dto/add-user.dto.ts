@@ -5,3 +5,4 @@ export class AddUserDto {
   @IsNotEmpty()
   userId: number;
 }
+

@@ -9,3 +9,4 @@ export class CreateRoomDto {
   @IsBoolean()
   isGroup?: boolean = false;
 }
+

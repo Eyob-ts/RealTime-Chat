@@ -1,11 +1,17 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { io, Socket } from "socket.io-client";
-import { useAuth } from "../contexts/AuthContext";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { io, Socket } from 'socket.io-client';
+import { useAuth } from '../contexts/AuthContext';
 
 const SocketContext = createContext<Socket | null>(null);
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
-  const backend = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+  const backend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
   const { token, user } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -26,16 +32,16 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      newSocket.on("connect", () => {
-        console.log("Socket connected", newSocket.id);
+      newSocket.on('connect', () => {
+        console.log('Socket connected', newSocket.id);
       });
 
-      newSocket.on("connect_error", (err) => {
-        console.warn("Socket connection error", err);
+      newSocket.on('connect_error', (err) => {
+        console.warn('Socket connection error', err);
       });
 
-      newSocket.on("disconnect", () => {
-        console.log("Socket disconnected");
+      newSocket.on('disconnect', () => {
+        console.log('Socket disconnected');
       });
 
       // when server notifies user that they were added to a room, dispatch a DOM event
@@ -62,11 +68,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [token, user, backend]);
 
-  return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>;
+  return (
+    <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
+  );
 };
 
 export const useSocket = () => {
   const s = useContext(SocketContext);
-  if (!s) throw new Error("useSocket must be used inside SocketProvider");
+  if (!s) throw new Error('useSocket must be used inside SocketProvider');
   return s;
 };

@@ -10,3 +10,4 @@ export class RegisterDto {
   @MinLength(6)
   password: string;
 }
+

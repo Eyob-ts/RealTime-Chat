@@ -1,20 +1,20 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useChat } from "../hooks/useChat";
-import { MessageList } from "./MessageList";
-import { MessageInput } from "./MessageInput";
-import { useAuth } from "../contexts/AuthContext";
+import React, { useState, useRef, useEffect } from 'react';
+import { useChat } from '../hooks/useChat';
+import { MessageList } from './MessageList';
+import { MessageInput } from './MessageInput';
+import { useAuth } from '../contexts/AuthContext';
 
 export function ChatWindow({ roomId }: { roomId: number }) {
   const { messages, sendMessage, sendTyping, typingUsers } = useChat(roomId);
   const { user } = useAuth();
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   // use number | null for browser setTimeout handle (avoids NodeJS types)
   const typingTimeoutRef = useRef<number | null>(null);
 
   const handleInputChange = (value: string) => {
     setInput(value);
-    
+
     // Send typing indicator
     if (!isTyping) {
       setIsTyping(true);
@@ -35,23 +35,23 @@ export function ChatWindow({ roomId }: { roomId: number }) {
 
   const handleSendMessage = () => {
     if (!input.trim()) return;
-    
+
     // Stop typing indicator
     if (isTyping) {
       setIsTyping(false);
       sendTyping(false);
     }
-    
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current as unknown as number);
     }
 
     sendMessage(input);
-    setInput("");
+    setInput('');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -75,7 +75,8 @@ export function ChatWindow({ roomId }: { roomId: number }) {
         <h2 className="text-white text-lg font-semibold">Room {roomId}</h2>
         {typingUsers.size > 0 && (
           <p className="text-gray-400 text-sm">
-            {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
+            {Array.from(typingUsers).join(', ')}{' '}
+            {typingUsers.size === 1 ? 'is' : 'are'} typing...
           </p>
         )}
       </div>
