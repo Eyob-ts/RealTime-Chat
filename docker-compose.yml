@@ -1,5 +1,7 @@
 version: '3.8'
+
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:15
     container_name: chat_postgres
@@ -12,6 +14,44 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    networks:
+      - chat-network
+
+  # Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    container_name: chat_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/chat?schema=public
+      - JWT_SECRET=your_jwt_secret_key_here
+      - NODE_ENV=production
+    depends_on:
+      - postgres
+    networks:
+      - chat-network
+
+  # Frontend Service
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    container_name: chat_frontend
+    restart: always
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - chat-network
+
+networks:
+  chat-network:
+    driver: bridge
 
 volumes:
   db_data:
